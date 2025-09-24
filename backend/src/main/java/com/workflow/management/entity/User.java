@@ -11,10 +11,11 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
-// TODO: Add indexes for username and email
-// TODO: Add validation constraints
 @Entity
-@Table(name = "users")
+@Table(name = "users", indexes = {
+    @Index(name = "idx_username", columnList = "username"),
+    @Index(name = "idx_email", columnList = "email")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,10 +25,10 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, length = 100)
     private String email;
 
     @Column(nullable = false)
