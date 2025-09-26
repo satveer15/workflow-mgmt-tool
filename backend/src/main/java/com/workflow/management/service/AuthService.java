@@ -70,10 +70,16 @@ public class AuthService {
         return new LoginResponse(jwt, user.getUsername(), user.getEmail(), roles);
     }
 
-    // TODO: Add validation for existing username/email
-    // TODO: Add password strength validation
     public User register(RegisterRequest registerRequest) {
         logger.info("User registration attempt: {}", registerRequest.getUsername());
+
+        if (userRepository.existsByUsername(registerRequest.getUsername())) {
+            throw new BadRequestException("Username is already taken");
+        }
+
+        if (userRepository.existsByEmail(registerRequest.getEmail())) {
+            throw new BadRequestException("Email is already in use");
+        }
 
         User user = new User();
         user.setUsername(registerRequest.getUsername());
@@ -91,6 +97,7 @@ public class AuthService {
                 throw new BadRequestException("Invalid role: " + registerRequest.getRole());
             }
         } else {
+            // Default role is EMPLOYEE
             Role defaultRole = roleRepository.findByName(RoleType.EMPLOYEE)
                     .orElseThrow(() -> new BadRequestException("Default role not found"));
             roles.add(defaultRole);
@@ -101,6 +108,24 @@ public class AuthService {
 
         logger.info("User registered successfully: {}", savedUser.getUsername());
         return savedUser;
+    }
+
+    public LoginResponse refreshToken(String username) {
+        logger.info("Token refresh attempt for user: {}", username);
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BadRequestException("User not found"));
+
+        // Create authentication object for token generation
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String jwt = jwtTokenProvider.generateToken(authentication);
+
+        List<String> roles = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
+        logger.info("Token refreshed successfully for user: {}", username);
+        return new LoginResponse(jwt, user.getUsername(), user.getEmail(), roles);
     }
 
     public void logout() {
