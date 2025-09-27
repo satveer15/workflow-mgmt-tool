@@ -30,10 +30,8 @@ public class TaskService {
     @Autowired
     private UserService userService;
 
-    // TODO: Add notification service integration
-    // TODO: Add task assignment functionality
-    // TODO: Add status update method
-    // TODO: Add search functionality
+    @Autowired
+    private NotificationService notificationService;
 
     public TaskDTO createTask(CreateTaskRequest request) {
         User currentUser = userService.getCurrentUser();
@@ -47,10 +45,18 @@ public class TaskService {
         task.setCreatedBy(currentUser);
         task.setDueDate(request.getDueDate());
 
+        // Assign task if assignedToId is provided
         if (request.getAssignedToId() != null) {
             User assignee = userRepository.findById(request.getAssignedToId())
                     .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getAssignedToId()));
             task.setAssignedTo(assignee);
+
+            // Create notification for task assignment
+            notificationService.createNotification(
+                    assignee,
+                    "You have been assigned a new task: " + task.getTitle(),
+                    NotificationType.TASK_ASSIGNED
+            );
         }
 
         Task savedTask = taskRepository.save(task);
@@ -99,6 +105,7 @@ public class TaskService {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", "id", id));
 
+        // Check if current user is the creator or has admin/manager role
         User currentUser = userService.getCurrentUser();
         if (!task.getCreatedBy().getId().equals(currentUser.getId()) &&
             !hasAdminOrManagerRole(currentUser)) {
@@ -119,6 +126,16 @@ public class TaskService {
         }
 
         Task updatedTask = taskRepository.save(task);
+
+        // Notify assigned user about task update
+        if (updatedTask.getAssignedTo() != null) {
+            notificationService.createNotification(
+                    updatedTask.getAssignedTo(),
+                    "Task updated: " + updatedTask.getTitle(),
+                    NotificationType.TASK_UPDATED
+            );
+        }
+
         logger.info("Task updated successfully: {}", id);
         return convertToDTO(updatedTask);
     }
@@ -128,6 +145,7 @@ public class TaskService {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Task", "id", id));
 
+        // Check if current user is the creator or has admin/manager role
         User currentUser = userService.getCurrentUser();
         if (!task.getCreatedBy().getId().equals(currentUser.getId()) &&
             !hasAdminOrManagerRole(currentUser)) {
@@ -138,9 +156,96 @@ public class TaskService {
         logger.info("Task deleted successfully: {}", id);
     }
 
+    public TaskDTO assignTask(Long taskId, AssignTaskRequest request) {
+        logger.info("Assigning task: {} to user: {}", taskId, request.getUserId());
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task", "id", taskId));
+
+        User assignee = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
+
+        task.setAssignedTo(assignee);
+        Task updatedTask = taskRepository.save(task);
+
+        // Create notification for task assignment
+        notificationService.createNotification(
+                assignee,
+                "You have been assigned to task: " + task.getTitle(),
+                NotificationType.TASK_ASSIGNED
+        );
+
+        logger.info("Task assigned successfully: {}", taskId);
+        return convertToDTO(updatedTask);
+    }
+
+    public TaskDTO updateTaskStatus(Long taskId, UpdateTaskStatusRequest request) {
+        logger.info("Updating task status: {} to {}", taskId, request.getStatus());
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ResourceNotFoundException("Task", "id", taskId));
+
+        // Permission check: ADMIN/MANAGER can update any task
+        // EMPLOYEE can only update tasks they created or are assigned to
+        User currentUser = userService.getCurrentUser();
+        boolean isAdminOrManager = hasAdminOrManagerRole(currentUser);
+        boolean isCreator = task.getCreatedBy() != null && task.getCreatedBy().getId().equals(currentUser.getId());
+        boolean isAssignee = task.getAssignedTo() != null && task.getAssignedTo().getId().equals(currentUser.getId());
+
+        if (!isAdminOrManager && !isCreator && !isAssignee) {
+            throw new BadRequestException("You don't have permission to update the status of this task");
+        }
+
+        TaskStatus oldStatus = task.getStatus();
+        task.setStatus(request.getStatus());
+        Task updatedTask = taskRepository.save(task);
+
+        // Notify relevant users about status change
+        if (request.getStatus() == TaskStatus.DONE) {
+            if (updatedTask.getCreatedBy() != null) {
+                notificationService.createNotification(
+                        updatedTask.getCreatedBy(),
+                        "Task completed: " + updatedTask.getTitle(),
+                        NotificationType.TASK_COMPLETED
+                );
+            }
+        } else if (request.getStatus() == TaskStatus.CANCELLED) {
+            if (updatedTask.getAssignedTo() != null) {
+                notificationService.createNotification(
+                        updatedTask.getAssignedTo(),
+                        "Task cancelled: " + updatedTask.getTitle(),
+                        NotificationType.TASK_CANCELLED
+                );
+            }
+        } else {
+            if (updatedTask.getAssignedTo() != null) {
+                notificationService.createNotification(
+                        updatedTask.getAssignedTo(),
+                        "Task status changed from " + oldStatus + " to " + request.getStatus() + ": " + updatedTask.getTitle(),
+                        NotificationType.TASK_UPDATED
+                );
+            }
+        }
+
+        logger.info("Task status updated successfully: {}", taskId);
+        return convertToDTO(updatedTask);
+    }
+
     private boolean hasAdminOrManagerRole(User user) {
         return user.getRoles().stream()
                 .anyMatch(role -> role.getName() == RoleType.ADMIN || role.getName() == RoleType.MANAGER);
+    }
+
+    public List<TaskDTO> searchTasks(String query) {
+        logger.info("Searching tasks with query: {}", query);
+
+        if (query == null || query.trim().isEmpty()) {
+            return getAllTasks(null, null, null);
+        }
+
+        List<Task> tasks = taskRepository.searchTasks(query.trim());
+
+        return tasks.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
     private TaskDTO convertToDTO(Task task) {
