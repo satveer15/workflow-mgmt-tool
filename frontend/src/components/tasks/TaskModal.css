@@ -1,0 +1,12 @@
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.task-form-actions {
+  display: flex;
+  gap: var(--space-md);
+  justify-content: flex-end;
+  margin-top: var(--space-md);
+}
