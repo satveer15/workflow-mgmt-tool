@@ -66,16 +66,20 @@ A full-stack task management system featuring JWT authentication, drag-and-drop 
 <div align="center">
 
 ### Dashboard & Task Management
-*[Screenshot placeholder - Add your dashboard screenshot here]*
+<img width="1726" height="954" alt="image" src="https://github.com/user-attachments/assets/e954e56c-5a18-4a3f-8e10-12e291946f3c" />
 
 ### Kanban Board with Drag & Drop
-*[Screenshot placeholder - Add your Kanban board screenshot here]*
+<img width="1724" height="954" alt="image" src="https://github.com/user-attachments/assets/3382d358-3ae0-4f0d-95d3-591c2d64e135" />
+
 
 ### Real-time Notifications
-*[Screenshot placeholder - Add your notifications screenshot here]*
+<img width="1723" height="955" alt="image" src="https://github.com/user-attachments/assets/cde19f7a-69b5-4ef6-a02e-76a0cab0feb8" />
+
 
 ### Analytics Dashboard
-*[Screenshot placeholder - Add your analytics dashboard screenshot here]*
+<img width="1725" height="963" alt="image" src="https://github.com/user-attachments/assets/c6b846df-4d6e-49bf-a847-5365e89b1329" />
+
+<img width="1727" height="957" alt="image" src="https://github.com/user-attachments/assets/546a234c-078d-4a30-a512-8a36cf92a924" />
 
 </div>
 
